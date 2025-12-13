@@ -10,6 +10,7 @@
 import * as vscode from 'vscode';
 import * as path from 'path';
 import { AlphaDiagnostic, DiagnosticSource, AggregatedDiagnostic, DiagnosticSeverity } from './types';
+import { SymbolIndex } from '../import/symbolIndex';
 
 /**
  * Priority mapping for diagnostic sources
@@ -79,9 +80,32 @@ export class DiagnosticAggregator implements vscode.Disposable {
     setAlphaDiagnostics(uri: vscode.Uri, alphaDiagnostics: AlphaDiagnostic[]): void {
         const diagnostics = alphaDiagnostics
             .filter(d => this.normalizeFilePath(d.file) === this.normalizeFilePath(uri.fsPath))
+            .filter(d => !this.isWildcardImportSymbolWarning(uri, d))
             .map(d => this.convertAlphaDiagnostic(d));
 
         this.setDiagnostics(uri, 'alpha', diagnostics);
+    }
+
+    /**
+     * Check if a diagnostic is a "Variable never assigned" warning for a wildcard-imported symbol
+     */
+    private isWildcardImportSymbolWarning(uri: vscode.Uri, diagnostic: AlphaDiagnostic): boolean {
+        // Check if this is a "Variable appears to never be assigned" warning
+        if (!diagnostic.message.includes('appears to never be assigned')) {
+            return false;
+        }
+
+        // Extract variable name from message like "Variable 'Sum' appears to never be assigned"
+        const match = diagnostic.message.match(/Variable '(\w+)'/);
+        if (!match) {
+            return false;
+        }
+
+        const variableName = match[1];
+
+        // Check if this symbol comes from a wildcard import
+        const symbolIndex = SymbolIndex.getInstance();
+        return symbolIndex.isSymbolFromWildcardImport(uri, variableName);
     }
 
     /**

@@ -44,6 +44,8 @@ export class SymbolIndex {
   private modules: Map<string, ModuleInfo> = new Map();
   private symbolsByModule: Map<string, SymbolInfo[]> = new Map();
   private symbolsByName: Map<string, SymbolInfo[]> = new Map();
+  /** Track wildcard imports per document: document URI -> module names */
+  private wildcardImportsByDocument: Map<string, string[]> = new Map();
   private fileWatcher: vscode.FileSystemWatcher | null = null;
   private indexingInProgress = false;
 
@@ -80,6 +82,7 @@ export class SymbolIndex {
     this.modules.clear();
     this.symbolsByModule.clear();
     this.symbolsByName.clear();
+    this.wildcardImportsByDocument.clear();
 
     const files = await vscode.workspace.findFiles('**/*.ahk', '**/node_modules/**');
 
@@ -124,8 +127,30 @@ export class SymbolIndex {
 
       // Index symbols
       this.indexSymbols(moduleInfo);
+
+      // Track wildcard imports for this document
+      this.indexWildcardImports(uri, imports);
     } catch (error) {
       console.error(`Failed to index file ${uri.fsPath}:`, error);
+    }
+  }
+
+  /**
+   * Index wildcard imports for a document
+   */
+  private indexWildcardImports(uri: vscode.Uri, imports: ImportStatement[]): void {
+    const wildcardModules: string[] = [];
+
+    for (const importStmt of imports) {
+      if (importStmt.isWildcard) {
+        wildcardModules.push(importStmt.moduleName);
+      }
+    }
+
+    if (wildcardModules.length > 0) {
+      this.wildcardImportsByDocument.set(uri.fsPath, wildcardModules);
+    } else {
+      this.wildcardImportsByDocument.delete(uri.fsPath);
     }
   }
 
@@ -256,6 +281,48 @@ export class SymbolIndex {
    */
   public removeFileFromIndex(uri: vscode.Uri): void {
     this.removeFile(uri);
+  }
+
+  /**
+   * Get all symbols available via wildcard imports for a document
+   */
+  public getWildcardImportedSymbols(uri: vscode.Uri): SymbolInfo[] {
+    const wildcardModules = this.wildcardImportsByDocument.get(uri.fsPath);
+    if (!wildcardModules || wildcardModules.length === 0) {
+      return [];
+    }
+
+    const symbols: SymbolInfo[] = [];
+    for (const moduleName of wildcardModules) {
+      const moduleSymbols = this.getModuleExports(moduleName);
+      symbols.push(...moduleSymbols);
+    }
+
+    return symbols;
+  }
+
+  /**
+   * Check if a symbol is available via wildcard import in a document
+   */
+  public isSymbolFromWildcardImport(uri: vscode.Uri, symbolName: string): boolean {
+    const wildcardSymbols = this.getWildcardImportedSymbols(uri);
+    return wildcardSymbols.some(s => s.name === symbolName);
+  }
+
+  /**
+   * Get the module that provides a symbol via wildcard import
+   */
+  public getWildcardImportSourceModule(uri: vscode.Uri, symbolName: string): string | undefined {
+    const wildcardModules = this.wildcardImportsByDocument.get(uri.fsPath);
+    if (!wildcardModules) return undefined;
+
+    for (const moduleName of wildcardModules) {
+      if (this.isSymbolExportedBy(symbolName, moduleName)) {
+        return moduleName;
+      }
+    }
+
+    return undefined;
   }
 
   /**

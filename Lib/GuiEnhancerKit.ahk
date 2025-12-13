@@ -1,5 +1,5 @@
 /************************************************************************
- * @description Elevate your AHK Gui development with extended methods and properties.
+ * @description Elevate your AHK Gui development with extended methods and properties.  
  * @file GuiEnhancerKit.ahk
  * @author Nikola Perovic
  * @link https://github.com/nperovic/GuiEnhancerKit
@@ -18,7 +18,7 @@ class GuiExt extends Gui
     class __Struct extends Buffer
     {
         __New(ByteCount?, FillByte?) => super.__New(ByteCount?, FillByte?)
-
+        
         Set(ptr?)
         {
             if !(ptr??0)
@@ -27,7 +27,7 @@ class GuiExt extends Gui
                 if this.HasProp(p)
                     this.%p% := v
         }
-
+    
         PropDesc(name, ofst, type, ptr?)
         {
             if ((ptr??0) && IsNumber(ptr))
@@ -38,20 +38,20 @@ class GuiExt extends Gui
             })
         }
     }
-
+    
     class RECT extends GuiExt.__Struct
-    {
+    { 
         /**
          * The `RECT` structure defines a rectangle by the coordinates of its upper-left and lower-right corners.
-         * @param {object|integer} [objOrAddress] *Optional:* Create rect object and set values to each property. It can be object or the `ptr` address.
+         * @param {object|integer} [objOrAddress] *Optional:* Create rect object and set values to each property. It can be object or the `ptr` address.  
          * @example
          * DllCall("GetWindowRect", "Ptr", WinExist("A"), "ptr", rc := GuiExt.RECT())
          * MsgBox rc.left " " rc.top " " rc.right " " rc.bottom
-         *
+         * 
          * @example
          * rc := GuiExt.RECT({top: 10, bottom: 69})
          * MsgBox "L" rc.left "/ T" rc.top "/ R" rc.right "/ B" rc.bottom ; L0/ T10/ R0/ B69
-         *
+         * 
          * @example
          * myGui.OnMessage(WM_NCCALCSIZE := 0x0083, NCCALCSIZE)
          * NCCALCSIZE(guiObj, wParam, lParam, msg)
@@ -61,7 +61,7 @@ class GuiExt extends Gui
          *          ToolTip "L" rc.left "/ T" rc.top "/ R" rc.right "/ B" rc.bottom
          *      }
          * }
-         *
+         * 
          * @returns The Buffer object that defined the `RECT` structure.
          * @link [Learn more on MSDN](https://learn.microsoft.com/en-us/windows/win32/api/windef/ns-windef-rect)
          */
@@ -74,19 +74,19 @@ class GuiExt extends Gui
                 this.PropDesc(prop, 4 * (i-1), "int",  ptr?)
             this.Set(objOrAddress?)
         }
-
+         
         /** @prop {integer} left Specifies the x-coordinate of the upper-left corner of the rectangle. */
         left := unset
-
+    
         /** @prop {integer} top Specifies the y-coordinate of the upper-left corner of the rectangle. */
         top := unset
-
+    
         /** @prop {integer} right Specifies the x-coordinate of the lower-right corner of the rectangle. */
         right := unset
-
+    
         /** @prop {integer} bottom Specifies the y-coordinate of the lower-right corner of the rectangle. */
         bottom := unset
-
+        
         /** @prop {integer} width Rect width. */
         width => (this.right - this.left)
 
@@ -161,7 +161,7 @@ class GuiExt extends Gui
 
         this.SetWindowAttribute(3, 1)
 
-        ; Set Rounded Corner for Windows 11
+        ; Set Rounded Corner for Windows 11 
         if (VerCompare(A_OSVersion, "10.0.22000") >= 0)
             this.SetWindowAttribute(33, 2)
 
@@ -169,7 +169,7 @@ class GuiExt extends Gui
         this.OnMessage(WM_NCACTIVATE, CB_NCACTIVATE)
         this.OnMessage(WM_NCCALCSIZE, CB_NCCALCSIZE)
 
-        ; Make window resizable.
+        ; Make window resizable. 
         this.OnMessage(WM_NCHITTEST, CB_NCHITTEST.Bind(dragWndFunc ? dragWndFunc.Bind(this) : 0))
 
         ExtendFrameIntoClientArea(cxLeftWidth?, cxRightWidth?, cyTopHeight?, cyBottomHeight?)
@@ -198,12 +198,12 @@ class GuiExt extends Gui
         }
 
         /**
-         * @param {Function} HTFunc
-         * @param {GuiExt} g
-         * @param {integer} wParam
-         * @param {integer} lParam
-         * @param {integer} Msg
-         * @returns {Integer | unset}
+         * @param {Function} HTFunc 
+         * @param {GuiExt} g 
+         * @param {integer} wParam 
+         * @param {integer} lParam 
+         * @param {integer} Msg 
+         * @returns {Integer | unset} 
          */
         CB_NCHITTEST(HTFunc?, g?, wParam?, lParam?, Msg?)
         {
@@ -212,7 +212,7 @@ class GuiExt extends Gui
                  , HTTOPRIGHT   := 14, HTBOTTOM      := 15
                  , HTBOTTOMLEFT := 16, HTBOTTOMRIGHT := 17
                  , TCAPTION     := 2
-
+            
             if !(g is Gui)
                 return
 
@@ -241,26 +241,26 @@ class GuiExt extends Gui
     }
 
     /**
-     * Retrieves the dimensions of the bounding rectangle of the specified window. The dimensions are given in screen coordinates that are relative to the upper-left corner of the screen.
+     * Retrieves the dimensions of the bounding rectangle of the specified window. The dimensions are given in screen coordinates that are relative to the upper-left corner of the screen.  
      * [Learn more](https://learn.microsoft.com/en-us/windows/win32/api/winuser/nf-winuser-getwindowrect)
-     * @returns {RECT}
+     * @returns {RECT} 
      */
     GetWindowRect() => (DllCall("GetWindowRect", "ptr", this.hwnd, "ptr", _rc := GuiExt.RECT(), "uptr"), _rc)
 
     /**
-     * Retrieves the coordinates of a window's client area. The client coordinates specify the upper-left and lower-right corners of the client area. Because client coordinates are relative to the upper-left corner of a window's client area, the coordinates of the upper-left corner are (0,0).
+     * Retrieves the coordinates of a window's client area. The client coordinates specify the upper-left and lower-right corners of the client area. Because client coordinates are relative to the upper-left corner of a window's client area, the coordinates of the upper-left corner are (0,0).  
      * [Learn more](https://learn.microsoft.com/en-us/windows/win32/api/winuser/nf-winuser-getclientrect)
-     * @returns {RECT}
-     */
+     * @returns {RECT} 
+     */        
     GetClientRect() => (DllCall("GetClientRect", "ptr", this.hwnd, "ptr", _rc := GuiExt.RECT(), "uptr"), _rc)
 
     /**
      * Sets the attributes of a window. Specifically, it can set the color of the window's caption, text, and border.
-     * @param {integer} [titleText] Specifies the color of the caption text. Specifying `0xFFFFFFFF` will reset to the system's default caption text color.
+     * @param {integer} [titleText] Specifies the color of the caption text. Specifying `0xFFFFFFFF` will reset to the system's default caption text color.  
      * @param {integer} [titleBackground] Specifies the color of the caption. Specifying `0xFFFFFFFF` will reset to the system's default caption color.
      * @param {integer} [border] Specifies the color of the window border.
-     * - Specifying `0xFFFFFFFE` will suppress the drawing of the window border.
-     * - Specifying `0xFFFFFFFF` will reset to the system's default border color.
+     * - Specifying `0xFFFFFFFE` will suppress the drawing of the window border. 
+     * - Specifying `0xFFFFFFFF` will reset to the system's default border color.  
      * The application is responsible for changing the border color in response to state changes, such as window activation.
      * @since This is supported starting with Windows 11 Build 22000.
      * @returns {String} - The result of the attribute setting operation.
@@ -271,8 +271,8 @@ class GuiExt extends Gui
         static DWMWA_CAPTION_COLOR := 35
         static DWMWA_TEXT_COLOR    := 36
         static SetClrMap           := Map(DWMWA_BORDER_COLOR, "border", DWMWA_CAPTION_COLOR, "titleBackground", DWMWA_TEXT_COLOR, "titleText")
-
-        if (VerCompare(A_OSVersion, "10.0.22200") < 0)
+        
+        if (VerCompare(A_OSVersion, "10.0.22200") < 0) 
             throw OSError("This is supported starting with Windows 11 Build 22000.")
 
         for attr, var in SetClrMap
@@ -301,13 +301,13 @@ class GuiExt extends Gui
             return this.SetWindowAttribute(attr, true)
     }
 
-    ; Apply dark theme to all the context menus that is created by this script.
+    ; Apply dark theme to all the context menus that is created by this script. 
     SetDarkMenu()
     {
         uxtheme             := DllCall("GetModuleHandle", "ptr", StrPtr("uxtheme"), "ptr")
         SetPreferredAppMode := DllCall("GetProcAddress", "ptr", uxtheme, "ptr", 135, "ptr")
         FlushMenuThemes     := DllCall("GetProcAddress", "ptr", uxtheme, "ptr", 136, "ptr")
-        DllCall(SetPreferredAppMode, "int", 1)
+        DllCall(SetPreferredAppMode, "int", 1)	
         DllCall(FlushMenuThemes)
     }
 
@@ -315,8 +315,8 @@ class GuiExt extends Gui
      * Send the message to the window or control, and then wait for confirmation.
      * @param {Integer} Msg
      * @param {Integer} [wParam=0]
-     * @param {Integer} [lParam=0]
-     * @returns {Integer}
+     * @param {Integer} [lParam=0] 
+     * @returns {Integer} 
      */
     SendMsg(Msg, wParam := 0, lParam := 0) {
         return SendMessage(Msg, wParam?, lParam?,, this)
@@ -330,9 +330,9 @@ class GuiExt extends Gui
      * Otherwise, this parameter must be a function object. (**ahk_h 2.0**)The function may also consult the built-in variable `A_EventInfo`, which contains 0 if the message was sent via SendMessage.
      * If sent via PostMessage, it contains the tick-count time the message was posted.
      * @param {Integer} MaxThreads This integer is usually omitted. In this case, the monitoring function can only process one thread at a time. This is usually the best, because otherwise whenever the monitoring function is interrupted, the script will process the messages in chronological order. Therefore, as an alternative to MaxThreads, Critical can be considered, as shown below.
-     *
+     * 
      * Specify 0 to unregister the function previously identified by Function.
-     *
+     * 
      * By default, when multiple functions are registered for a MsgNumber, they will be called in the order of registration. To register a function before the previously registered function, specify a negative value for MaxThreads. For example, OnMessage Msg, Fn, -2 Register Fn to be called before any other functions registered for Msg, and allow Fn to have up to 2 threads. However, if the function has already been registered, the order will not change unless the registration is cancelled and then re-registered.
      */
     OnMessage(Msg, Callback, MaxThreads?)
@@ -352,7 +352,7 @@ class GuiExt extends Gui
         {
             sp := sp ?? super.Prototype
             for prop in p.OwnProps()
-                if (!sp.HasMethod(prop) && !InStr(prop, "__"))
+                if (!sp.HasMethod(prop) && !InStr(prop, "__")) 
                     sp.DefineProp(prop, p.GetOwnPropDesc(prop))
 
             if sp.HasMethod("OnMessage")
@@ -368,17 +368,17 @@ class GuiExt extends Gui
         X := unset, Y := unset, W := unset, H := unset
 
         /**
-         * Retrieves the dimensions of the bounding rectangle of the specified window. The dimensions are given in screen coordinates that are relative to the upper-left corner of the screen.
+         * Retrieves the dimensions of the bounding rectangle of the specified window. The dimensions are given in screen coordinates that are relative to the upper-left corner of the screen.  
          * [Learn more](https://learn.microsoft.com/en-us/windows/win32/api/winuser/nf-winuser-getclientrect)
-         * @returns {RECT}
+         * @returns {RECT} 
          */
         GetWindowRect() => (DllCall("GetWindowRect", "ptr", this.hwnd, "ptr", _rc := GuiExt.RECT(), "uptr"), _rc)
 
         /**
-         * Retrieves the coordinates of a window's client area. The client coordinates specify the upper-left and lower-right corners of the client area. Because client coordinates are relative to the upper-left corner of a window's client area, the coordinates of the upper-left corner are (0,0).
+         * Retrieves the coordinates of a window's client area. The client coordinates specify the upper-left and lower-right corners of the client area. Because client coordinates are relative to the upper-left corner of a window's client area, the coordinates of the upper-left corner are (0,0).  
          * [Learn more](https://learn.microsoft.com/en-us/windows/win32/api/winuser/nf-winuser-getclientrect)
-         * @returns {RECT}
-         */
+         * @returns {RECT} 
+         */        
         GetClientRect() => (DllCall("GetClientRect", "ptr", this.hwnd, "ptr", _rc := GuiExt.RECT(), "uptr"), _rc)
 
         /**
@@ -388,7 +388,7 @@ class GuiExt extends Gui
          * If the GUI has an event sink (that is, if Gui()'s EventObj parameter was specified), this parameter may be the name of a method belonging to the event sink.
          * Otherwise, this parameter must be a function object. The function may also consult the built-in variable `A_EventInfo`, which contains 0 if the message was sent via SendMessage.
          * If sent via PostMessage, it contains the tick-count time the message was posted.
-            * @param {Integer} AddRemove If omitted, it defaults to 1 (call the callback after any previously registered callbacks). Otherwise, specify one of the following numbers:
+            * @param {Integer} AddRemove If omitted, it defaults to 1 (call the callback after any previously registered callbacks). Otherwise, specify one of the following numbers: 
             * - 1  = Call the callback after any previously registered callbacks.
             * - -1 = Call the callback before any previously registered callbacks.
             * - 0  = Do not call the callback.
@@ -405,7 +405,7 @@ class GuiExt extends Gui
                 OnExit(RemoveWindowSubclass)
                 this.Gui.OnEvent("Close", RemoveWindowSubclass)
             }
-
+            
             hm := HookedMsgs[this.hwnd]
 
             if AddRemove
@@ -431,7 +431,7 @@ class GuiExt extends Gui
             RemoveWindowSubclass(*)
             {
                 DetectHiddenWindows true
-
+                
                 for hwnd, cb in SubClasses.Clone() {
                     try if WinExist(hwnd) {
                         DllCall("RemoveWindowSubclass", "Ptr", hWnd, "Ptr", cb, "Ptr", hWnd)
@@ -460,7 +460,7 @@ class GuiExt extends Gui
         SetRounded(corner := 9)
         {
             static WM_SIZE := 0x0005
-
+            
             SIZING(this)
             this.OnMessage(WM_SIZE, SIZING)
 
@@ -479,8 +479,8 @@ class GuiExt extends Gui
          * Send the message to the window or control, and then wait for confirmation.
          * @param {Integer} Msg
          * @param {Integer} [wParam=0]
-         * @param {Integer} [lParam=0]
-         * @returns {Integer}
+         * @param {Integer} [lParam=0] 
+         * @returns {Integer} 
          */
         SendMsg(Msg, wParam := 0, lParam := 0) => (SendMessage(Msg, wParam?, lParam?, this))
     }
@@ -494,7 +494,7 @@ class GuiExt extends Gui
      *         VScroll  HScroll -Tabstop -Wrap
      *         BackgroundColor  BackgroundTrans
      *         Border  Theme  Disabled  Hidden
-     * @param Text The text
+     * @param Text The text  
      * @returns {GuiExt.Control|GuiExt.Text}
      */
     AddText(Options?, Text?) => super.AddText(Options?, Text?)
@@ -507,7 +507,7 @@ class GuiExt extends Gui
      *  Pos:  xn yn wn hn rn Right Left Center Section
      *        VScroll HScroll -Tabstop -Wrap
      *        BackgroundColor Border Theme Disabled Hidden
-     * @param Text The text in the Edit
+     * @param Text The text in the Edit  
      * @returns {GuiExt.Control|GuiExt.Edit|Gui.Edit}
      */
     AddEdit(Options?, Text?) => super.AddEdit(Options?, Text?)
@@ -536,7 +536,7 @@ class GuiExt extends Gui
      *   V:  Sets the control's Name.
      *   Positioning:  xn yn wn hn rn Right Left Center Section -Tabstop -Wrap
      *   BackgroundColor Border Theme Disabled Hidden
-     * @param Text The text of the button
+     * @param Text The text of the button  
      * @returns {GuiEx.Control}
      */
     AddButton(Options?, Text?) => super.AddButton(Options?, Text?)
@@ -553,7 +553,7 @@ class GuiExt extends Gui
      *               VScroll  HScroll -Tabstop -Wrap
      *               BackgroundColor  BackgroundTrans
      *               Border  Theme  Disabled  Hidden
-     * @param Text The text of the Checkbox
+     * @param Text The text of the Checkbox  
      * @returns {GuiExt.Control|GuiExt.Checkbox|Gui.Checkbox}
      */
     AddCheckbox(Options?, Text?) => super.AddCheckbox(Options?, Text?)
@@ -570,7 +570,7 @@ class GuiExt extends Gui
      *               VScroll  HScroll -Tabstop -Wrap
      *               BackgroundColor  BackgroundTrans
      *               Border  Theme  Disabled  Hidden
-     * @param Text The text of the Checkbox
+     * @param Text The text of the Checkbox  
      * @returns {GuiExt.Control|GuiExt.Radio|Gui.Radio}
      */
     AddRadio(Options?, Text?) => super.AddRadio(Options?, Text?)
@@ -585,7 +585,7 @@ class GuiExt extends Gui
      * Create DropDownList control and return a GuiControl object.
      * @returns {GuiExt.Control|GuiExt.DropDownList|Gui.DropDownList}
      */
-    AddDDL(Options?, Items?) => super.AddaDropDownList(Options?, Items?)
+    AddDDL(Options?, Items?) => super.AddDropDownList(Options?, Items?)
 
 
     /**
@@ -707,24 +707,24 @@ Example_GuiExt()
     static WM_SIZING        := 0x0214
     static WM_MOVE          := 0x0003
     static WM_MOVING        := 0x0216
-
+    
     /**
-     * ### To ensure proper functioning of VSCode's Intelligence, you can:
+     * ### To ensure proper functioning of VSCode's Intelligence, you can:  
      * 1. Replace `Gui` object with `GuiExt`. (Recommended)
      * 2. Annotate the variable type as GuiExt above the line where you create a new Gui object instance.(Like the example below:)
      * @var {GuiExt} myGui
      * */
     myGui := Gui("-Caption +Resize")
     ; myGui := GuiExt("-Caption +Resize")
-
+    
     myGui.SetFont("cWhite s16", "Segoe UI")
     myGui.BackColor := 0x202020
-
+    
     myGui.OnEvent("Size", Size)
     myGui.OnMessage(WM_MOVING, (*) => myEdit.UpdatePos())
 
     myGui.OnEvent("Escape", (*) => ExitApp())
-
+    
     ; Registers a function or method to be called whenever the Gui or GuiControl receives the specified message. [Check out the official document for more information.](https://www.autohotkey.com/docs/alpha/lib/GuiOnMessage.htm)
     myGui.OnMessage(WM_LBUTTONDOWN, DragWindow)
 
@@ -733,50 +733,50 @@ Example_GuiExt()
 
     ; Set Dark ContextMenu
     myGui.SetDarkMenu()
-
+    
     if (VerCompare(A_OSVersion, "10.0.22000") >= 0)
     {
         ; Set Rounded Window (Requires win 11)
         myGui.SetWindowAttribute(33, 2)
-
+    
         ; Remove the window border. (Requires win 11)
         ; Do not set this if you're creating a borderless window with `SetBorderless` method.
         ; myGui.SetWindowColor(, , -1)
-
+    
         ; Set Mica (Alt) background. (Requires win 11 build 22600)
         ; [Learn more](https://learn.microsoft.com/en-us/windows/apps/design/style/mica#app-layering-with-mica-alt)
         if (VerCompare(A_OSVersion, "10.0.22600") >= 0)
             myGui.SetWindowAttribute(38, 4)
     }
-
-    ; Set the borderless
+    
+    ; Set the borderless 
     myGui.SetBorderless(6, BorderlessCallback, 500, 500, 500, 500)
-
+    
     ; Gui Control objects created in this way do not work with VSCode's IntelliSense. Create an Edit control as shown below.
     text := myGui.Add("Text", "Backgroundcaa2031 cwhite Center R1.5 0x200 w280", "Rounded Text Control")
-
+    
     ; Set Rounded Control
     text.SetRounded()
-
+     
     myEdit := myGui.Add("Edit", "vEdit -WantReturn -TabStop w300 h150 -E0x200 -HScroll -VScroll +Multi +ReadOnly cwhite Background" myGui.BackColor)
     myEdit.SetFont(, "Consolas")
-
+    
     ; Set Edit Control theme
     myEdit.SetTheme("DarkMode_Explorer")
-
-    myEdit.UpdatePos := (ctrl => (ctrl.Value :=
+    
+    myEdit.UpdatePos := (ctrl => (ctrl.Value := 
     (
         "x: " myGui.X "
         y: " myGui.Y "
         w: " myGui.W "
         h: " myGui.H
     )))
-
-    ; Hide the blinking caret
+    
+    ; Hide the blinking caret 
     myEdit.OnEvent("Focus", (gCtrl, *) => (DllCall("HideCaret", "ptr", gCtrl.hWnd, "int"), gCtrl.SendMsg(EN_KILLFOCUS)))
-
+    
     myEdit.OnMessage(WM_SETCURSOR, SetCursor)
-
+    
     myGui.Show("w300 AutoSize")
     myGui.Opt("MinSize")
 
@@ -785,52 +785,52 @@ Example_GuiExt()
 
     WinRedraw(myGui)
     WinWaitClose(myGui)
-
+    
     BorderlessCallback(g, x, y) {
         if !g["Edit"]
-            return
+            return 
         WinGetPos(, &eY,,, g["Edit"])
         return y <= eY
     }
-
+    
     /**
-     * @param {GuiExt|Gui} GuiObj
-     * @param {Integer} MinMax
-     * @param {Integer} Width
-     * @param {Integer} Height
+     * @param {GuiExt|Gui} GuiObj 
+     * @param {Integer} MinMax 
+     * @param {Integer} Width 
+     * @param {Integer} Height 
      */
     Size(GuiObj, MinMax, Width, Height)
     {
         Critical("Off")
         SetWinDelay(-1), SetControlDelay(-1)
-
+    
         ; Moving Controls
         myEdit.W := text.W := Width - (GuiObj.MarginX*2)
         myEdit.H := Height - (GuiObj.MarginY*2)
         myEdit.UpdatePos()
     }
-
+    
     /**
      * Callback function for `GuiCtrl.OnMessage()` [Check out the official document for more information.](https://www.autohotkey.com/docs/alpha/lib/GuiOnMessage.htm)
-     * @param GuiCtrlObj
-     * @param wParam
-     * @param lParam
-     * @param msg
-     * @returns {Integer}
+     * @param GuiCtrlObj 
+     * @param wParam 
+     * @param lParam 
+     * @param msg 
+     * @returns {Integer} 
      */
     DragWindow(GuiCtrlObj, wParam, lParam, msg) {
         static WM_NCLBUTTONDOWN := 0x00A1
         PostMessage(WM_NCLBUTTONDOWN, 2,,, GuiCtrlObj is Gui.Control ? GuiCtrlObj.Gui : GuiCtrlObj)
         return 0
     }
-
+    
     /**
      * Callback function for `GuiCtrl.OnMessage()` [Check out the official document for more information.](https://www.autohotkey.com/docs/alpha/lib/GuiOnMessage.htm)
-     * @param GuiCtrlObj
-     * @param wParam
-     * @param lParam
-     * @param msg
-     * @returns {Integer}
+     * @param GuiCtrlObj 
+     * @param wParam 
+     * @param lParam 
+     * @param msg 
+     * @returns {Integer} 
      */
     SetCursor(GuiCtrlObj, wParam, lParam, Msg) {
         static hCursor := DllCall("LoadCursor", "ptr", 0, "ptr", 32512)
@@ -849,14 +849,14 @@ Example_SetBorderless()
 
     myGui.BackColor := 0x202020
     text            := myGui.AddText("vTitlebar Backgroundcaa2031 cwhite Center R1.5 0x200 w280", "Titlebar Area")
-
+    
     text.Base := GuiExt.Control
 
     text.SetRounded()
 
     myGui.OnEvent('Size', Size)
 
-    ;Set Mica (Alt) background. (Supported starting with Windows 11 Build 22000.)
+    ;Set Mica (Alt) background. (Supported starting with Windows 11 Build 22000.) 
     if (VerCompare(A_OSVersion, "10.0.22600") >= 0)
         myGui.SetWindowAttribute(38, 4)
 

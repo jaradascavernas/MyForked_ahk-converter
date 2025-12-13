@@ -738,7 +738,7 @@ export class ToolboxSidebarProvider implements vscode.WebviewViewProvider {
       text-align: center;
       cursor: pointer;
       border-radius: 2px;
-      transition: background 0.1s ease;
+      transition: background 0.15s ease, border-color 0.15s ease;
       min-height: 28px;
     }
 
@@ -749,9 +749,10 @@ export class ToolboxSidebarProvider implements vscode.WebviewViewProvider {
       font-size: 13px;
       font-weight: 400;
       padding: 6px 12px;
+      transition: background 0.15s ease, border-color 0.15s ease;
     }
 
-    vscode-button.hovered::part(control) {
+    vscode-button:hover::part(control) {
       background: #3a3a3a !important;
       border-color: #505050 !important;
     }
@@ -1818,7 +1819,7 @@ export class ToolboxSidebarProvider implements vscode.WebviewViewProvider {
 </head>
 <body>
   <div class="header">
-    <button class="back-btn" id="back-btn" title="Back to toolbox" aria-label="Back to main" onclick="goBack()">
+    <button class="back-btn" id="back-btn" title="Back to toolbox" aria-label="Back to main">
       <span class="codicon codicon-arrow-left"></span>
     </button>
     <h2>Edit Metadata</h2>
@@ -1913,11 +1914,11 @@ export class ToolboxSidebarProvider implements vscode.WebviewViewProvider {
 
   <div class="footer">
     <div class="button-group">
-      <button class="btn-primary" id="save-btn" title="Save metadata to file (Ctrl+S)" onclick="handleSave()">
+      <button class="btn-primary" id="save-btn" title="Save metadata to file (Ctrl+S)">
         <span class="codicon codicon-save"></span>
         Save
       </button>
-      <button class="btn-secondary" id="cancel-btn" title="Discard changes and go back" onclick="goBack()">
+      <button class="btn-secondary" id="cancel-btn" title="Discard changes and go back">
         Cancel
       </button>
     </div>
@@ -1930,8 +1931,16 @@ export class ToolboxSidebarProvider implements vscode.WebviewViewProvider {
 
     // Navigation function - called by onclick handlers
     function goBack() {
+      console.log('goBack called');
       vscode.postMessage({ type: 'showMain' });
     }
+
+    // Wire up button click handlers via addEventListener (more reliable than onclick)
+    document.addEventListener('DOMContentLoaded', () => {
+      document.getElementById('back-btn')?.addEventListener('click', goBack);
+      document.getElementById('cancel-btn')?.addEventListener('click', goBack);
+      document.getElementById('save-btn')?.addEventListener('click', handleSave);
+    });
 
     const getElementValue = (id) => {
       const element = document.getElementById(id);

@@ -1,9 +1,7 @@
-﻿#Requires AutoHotkey v2.1-alpha.17
-#SingleInstance Force
+#Requires AutoHotkey v2.1-alpha.17
 
-; Example string helper module mirroring the structure expected by the toolbox.
-
-#Module StringHelpers
+; String helper module for native import system
+; Note: No #Module directive needed - file becomes module when imported
 
 export TitleCase(text) {
     words := StrSplit(text, ' ')
