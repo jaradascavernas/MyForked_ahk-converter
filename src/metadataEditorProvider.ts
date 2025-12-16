@@ -1,6 +1,9 @@
 import * as vscode from 'vscode';
 import * as fs from 'fs/promises';
 import * as path from 'path';
+import * as crypto from 'crypto';
+
+const metadataLog = vscode.window.createOutputChannel('AHKv2 Toolbox Metadata');
 
 /**
  * JSDoc metadata interface
@@ -74,16 +77,23 @@ export class MetadataEditorProvider {
     );
 
     MetadataEditorProvider.currentPanel = panel;
+    metadataLog.appendLine('[meta] panel created');
 
     // Load and parse the file
     const metadata = await MetadataEditorProvider.parseJSDoc(filePath);
 
     // Set the webview's initial html content
-    panel.webview.html = MetadataEditorProvider.getWebviewContent(metadata, filePath);
+    panel.webview.html = MetadataEditorProvider.getWebviewContent(
+      panel.webview,
+      context,
+      metadata,
+      filePath
+    );
 
     // Handle messages from the webview
     panel.webview.onDidReceiveMessage(
       async (message) => {
+        metadataLog.appendLine('[meta] recv ' + JSON.stringify(message));
         switch (message.type) {
           case 'save':
             await MetadataEditorProvider.saveMetadata(filePath, message.metadata);
@@ -93,12 +103,10 @@ export class MetadataEditorProvider {
             await MetadataEditorProvider.generateMetadata(filePath);
             break;
           case 'back':
-            // Close the panel and return to editor
-            panel.dispose();
-            break;
           case 'cancel':
-            // Close the panel without saving
+            metadataLog.appendLine('[meta] handling back');
             panel.dispose();
+            await vscode.commands.executeCommand('ahkv2Toolbox.showMain');
             break;
         }
       },
@@ -295,12 +303,25 @@ export class MetadataEditorProvider {
   /**
    * Get webview HTML content
    */
-  private static getWebviewContent(metadata: JSDocMetadata, filePath: string): string {
+  private static getWebviewContent(
+    webview: vscode.Webview,
+    context: vscode.ExtensionContext,
+    metadata: JSDocMetadata,
+    filePath: string
+  ): string {
     const fileName = path.basename(filePath, path.extname(filePath));
+    const metadataJson = JSON.stringify(metadata);
+    const filePathJson = JSON.stringify(filePath);
+    const cspSource = webview.cspSource;
+    const nonce = MetadataEditorProvider.getNonce();
+    const scriptUri = webview.asWebviewUri(
+      vscode.Uri.joinPath(context.extensionUri, 'media', 'metadataEditor.js')
+    );
     return `<!DOCTYPE html>
 <html lang="en">
 <head>
   <meta charset="UTF-8">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'none'; style-src ${cspSource} 'unsafe-inline'; script-src 'nonce-${nonce}' ${cspSource};">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Edit Metadata - ${fileName}</title>
   <style>
@@ -740,257 +761,18 @@ export class MetadataEditorProvider {
   </div>
 
   <div class="button-group">
-    <button class="secondary" id="backButton">← Back</button>
+    <button class="secondary" id="backButton" data-action="back" type="button">← Back</button>
     <button id="saveButton">💾 Save Metadata</button>
-    <button class="secondary" id="cancelButton">✕ Cancel</button>
+    <button class="secondary" id="cancelButton" data-action="cancel" type="button">✕ Cancel</button>
   </div>
 
-  <script>
-    const vscode = acquireVsCodeApi();
-
-    // Track the original file path being edited
-    const originalFilePath = '${filePath}';
-
-    // Initialize array fields
-    const metadata = ${JSON.stringify(metadata)};
-
-    const normalizeArrayField = (fieldName) => {
-      const value = metadata[fieldName];
-      if (Array.isArray(value)) {
-        return;
-      }
-      if (typeof value === 'string') {
-        metadata[fieldName] = value
-          .split(/\r?\n/)
-          .map(item => item.trim())
-          .filter(Boolean);
-        return;
-      }
-      metadata[fieldName] = [];
-    };
-
-    const arrayFields = ['link', 'see', 'requires', 'imports', 'exports', 'todo', 'contributors'];
-    arrayFields.forEach(normalizeArrayField);
-
-    function renderArrayField(fieldName, containerId) {
-      const container = document.getElementById(containerId);
-      const items = Array.isArray(metadata[fieldName]) ? metadata[fieldName] : [];
-      container.innerHTML = items.map((item, index) =>
-        \`<div class="tag">\${item}<button class="remove-btn" data-field="\${fieldName}" data-item="\${item}">×</button></div>\`
-      ).join('');
-
-      // Attach event listeners to remove buttons
-      container.querySelectorAll('.remove-btn').forEach(btn => {
-        btn.addEventListener('click', function() {
-          const field = this.getAttribute('data-field');
-          const item = this.getAttribute('data-item');
-          removeArrayItem(field, containerId, item);
-        });
-      });
-    }
-
-    function addArrayItem(fieldName, inputId, containerId) {
-      const input = document.getElementById(inputId);
-      const value = input.value.trim();
-      if (!value) return;
-
-      const target = Array.isArray(metadata[fieldName]) ? metadata[fieldName] : [];
-      metadata[fieldName] = target;
-      if (!target.includes(value)) {
-        target.push(value);
-        renderArrayField(fieldName, containerId);
-        input.value = '';
-      }
-    }
-
-    function removeArrayItem(fieldName, containerId, value) {
-      const target = Array.isArray(metadata[fieldName]) ? metadata[fieldName] : [];
-      metadata[fieldName] = target.filter(item => item !== value);
-      renderArrayField(fieldName, containerId);
-    }
-
-    // Array field handlers
-    function addLink() { addArrayItem('link', 'linkInput', 'linksList'); }
-    function addSee() { addArrayItem('see', 'seeInput', 'seeList'); }
-    function addRequires() { addArrayItem('requires', 'requiresInput', 'requiresList'); }
-    function addImports() { addArrayItem('imports', 'importsInput', 'importsList'); }
-    function addExports() { addArrayItem('exports', 'exportsInput', 'exportsList'); }
-    function addTodo() { addArrayItem('todo', 'todoInput', 'todoList'); }
-    function addContributor() { addArrayItem('contributors', 'contributorInput', 'contributorsList'); }
-
-    function removeLink(v) { removeArrayItem('link', 'linksList', v); }
-    function removeSee(v) { removeArrayItem('see', 'seeList', v); }
-    function removeRequires(v) { removeArrayItem('requires', 'requiresList', v); }
-    function removeImports(v) { removeArrayItem('imports', 'importsList', v); }
-    function removeExports(v) { removeArrayItem('exports', 'exportsList', v); }
-    function removeTodo(v) { removeArrayItem('todo', 'todoList', v); }
-    function removeContributors(v) { removeArrayItem('contributors', 'contributorsList', v); }
-
-    // Initialize
-    renderArrayField('link', 'linksList');
-    renderArrayField('see', 'seeList');
-    renderArrayField('requires', 'requiresList');
-    renderArrayField('imports', 'importsList');
-    renderArrayField('exports', 'exportsList');
-    renderArrayField('todo', 'todoList');
-    renderArrayField('contributors', 'contributorsList');
-
-    function saveMetadata() {
-      console.log('saveMetadata called');
-      const formData = {
-        file: document.getElementById('file').value,
-        title: document.getElementById('title').value,
-        fileoverview: document.getElementById('fileoverview').value,
-        abstract: document.getElementById('abstract').value,
-        description: document.getElementById('description').value,
-        module: document.getElementById('module').value,
-        author: document.getElementById('author').value,
-        license: document.getElementById('license').value,
-        version: document.getElementById('version').value,
-        since: document.getElementById('since').value,
-        date: document.getElementById('date').value,
-        homepage: document.getElementById('homepage').value,
-        repository: document.getElementById('repository').value,
-        bugs: document.getElementById('bugs').value,
-        keywords: document.getElementById('keywords').value,
-        category: document.getElementById('category').value,
-        'ahk-version': document.getElementById('ahk-version').value,
-        entrypoint: document.getElementById('entrypoint').value,
-        env: document.getElementById('env').value,
-        permissions: document.getElementById('permissions').value,
-        config: document.getElementById('config').value,
-        arguments: document.getElementById('arguments').value,
-        returns: document.getElementById('returns').value,
-        sideEffects: document.getElementById('sideEffects').value,
-        examples: document.getElementById('examples').value,
-        changelog: document.getElementById('changelog').value,
-        funding: document.getElementById('funding').value,
-        maintainer: document.getElementById('maintainer').value,
-        link: metadata.link,
-        see: metadata.see,
-        requires: metadata.requires,
-        imports: metadata.imports,
-        exports: metadata.exports,
-        todo: metadata.todo,
-        contributors: metadata.contributors
-      };
-
-      console.log('Sending save message with data:', formData);
-      try {
-        vscode.postMessage({ type: 'save', metadata: formData });
-      } catch (error) {
-        console.error('Error sending save message:', error);
-        alert('Failed to save: ' + error.message);
-      }
-    }
-
-    function generateMetadata() {
-      console.log('Generate metadata called');
-      vscode.postMessage({ type: 'generate' });
-    }
-
-    function goBack() {
-      console.log('goBack called');
-      try {
-        vscode.postMessage({ type: 'back' });
-      } catch (error) {
-        console.error('Error sending back message:', error);
-        alert('Failed to go back: ' + error.message);
-      }
-    }
-
-    function cancelEdit() {
-      console.log('cancelEdit called');
-      if (confirm('Discard all changes and close?')) {
-        try {
-          vscode.postMessage({ type: 'cancel' });
-        } catch (error) {
-          console.error('Error sending cancel message:', error);
-          alert('Failed to cancel: ' + error.message);
-        }
-      }
-    }
-
-    // Listen for active file change messages from extension
-    window.addEventListener('message', event => {
-      const message = event.data;
-
-      if (message.type === 'activeFileChanged') {
-        const currentFilePath = message.filePath;
-        const pageTitle = document.getElementById('pageTitle');
-        const warning = document.getElementById('fileMismatchWarning');
-
-        // Check if the current file matches the file being edited
-        if (currentFilePath !== originalFilePath) {
-          // File mismatch - show warning
-          pageTitle.classList.add('file-mismatch');
-          warning.classList.add('visible');
-        } else {
-          // File matches - hide warning
-          pageTitle.classList.remove('file-mismatch');
-          warning.classList.remove('visible');
-        }
-      }
-    });
-
-    // Initialize button event listeners
-    document.addEventListener('DOMContentLoaded', function() {
-      console.log('DOMContentLoaded - initializing buttons');
-
-      const saveButton = document.getElementById('saveButton');
-      const backButton = document.getElementById('backButton');
-      const cancelButton = document.getElementById('cancelButton');
-
-      if (saveButton) {
-        saveButton.addEventListener('click', function() {
-          console.log('Save button clicked');
-          saveMetadata();
-        });
-      }
-
-      if (backButton) {
-        backButton.addEventListener('click', function() {
-          console.log('Back button clicked');
-          goBack();
-        });
-      }
-
-      if (cancelButton) {
-        cancelButton.addEventListener('click', function() {
-          console.log('Cancel button clicked');
-          cancelEdit();
-        });
-      }
-
-      // Initialize array field rendering
-      renderArrayField('link', 'linksList');
-      renderArrayField('see', 'seeList');
-      renderArrayField('requires', 'requiresList');
-      renderArrayField('imports', 'importsList');
-      renderArrayField('exports', 'exportsList');
-      renderArrayField('todo', 'todoList');
-      renderArrayField('contributors', 'contributorsList');
-
-      // Initialize Add button event listeners
-      const addButtons = {
-        'addContributorBtn': () => addContributor(),
-        'addLinkBtn': () => addLink(),
-        'addSeeBtn': () => addSee(),
-        'addRequiresBtn': () => addRequires(),
-        'addImportsBtn': () => addImports(),
-        'addExportsBtn': () => addExports(),
-        'addTodoBtn': () => addTodo()
-      };
-
-      for (const [btnId, handler] of Object.entries(addButtons)) {
-        const btn = document.getElementById(btnId);
-        if (btn) {
-          btn.addEventListener('click', handler);
-        }
-      }
-    });
-  </script>
+  <script nonce="${nonce}">globalThis.__AHK_META_EDITOR__={filePath:${filePathJson},metadata:${metadataJson}};</script>
+  <script nonce="${nonce}" src="${scriptUri}"></script>
 </body>
 </html>`;
+  }
+
+  private static getNonce(): string {
+    return crypto.randomBytes(16).toString('base64');
   }
 }

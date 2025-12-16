@@ -1,6 +1,9 @@
 import * as vscode from 'vscode';
 import * as fs from 'fs/promises';
 import * as path from 'path';
+import { MetadataEditorProvider } from './metadataEditorProvider';
+
+const toolboxLog = vscode.window.createOutputChannel('AHKv2 Toolbox Sidebar');
 
 /**
  * JSDoc metadata interface
@@ -91,19 +94,25 @@ export class ToolboxSidebarProvider implements vscode.WebviewViewProvider {
   public static readonly viewType = 'ahkv2Toolbox';
 
   private _view?: vscode.WebviewView;
+  private pendingRoute?: 'main';
   private currentView: 'main' | 'settings' | 'metadata' = 'main';
   private currentFilePath?: string;
 
   constructor(
-    private readonly _extensionUri: vscode.Uri,
+    private readonly _extensionContext: vscode.ExtensionContext,
     private readonly extensionId: string
   ) {}
+
+  private get _extensionUri(): vscode.Uri {
+    return this._extensionContext.extensionUri;
+  }
 
   public resolveWebviewView(
     webviewView: vscode.WebviewView,
     context: vscode.WebviewViewResolveContext,
     _token: vscode.CancellationToken
   ) {
+    toolboxLog.appendLine('[sidebar] resolveWebviewView');
     this._view = webviewView;
 
     webviewView.webview.options = {
@@ -113,39 +122,68 @@ export class ToolboxSidebarProvider implements vscode.WebviewViewProvider {
 
     webviewView.webview.html = this.getMainViewHtml();
 
+    const log = toolboxLog;
+    log.appendLine('[toolbox] handler attached');
+
+    if (this.pendingRoute === 'main') {
+      log.appendLine('[sidebar] applied pendingRoute=main');
+      this.pendingRoute = undefined;
+      this.showMainView();
+    }
+
     // Handle messages from the webview
     webviewView.webview.onDidReceiveMessage(async (data: WebviewMessage) => {
+      log.appendLine('[sidebar] recv ' + (data?.type ?? 'unknown'));
+      console.log('[sidebar] Received message:', data.type, data);
       try {
         switch (data.type) {
+          case 'executeCommand':
           case WebviewMessageType.ExecuteCommand:
             if (data.command) {
               await vscode.commands.executeCommand(data.command, ...(data.args || []));
             }
             break;
+          case 'editActiveFileMetadata':
           case WebviewMessageType.EditActiveFileMetadata:
+            log.appendLine('[sidebar] handling editActiveFileMetadata');
             await this.editActiveFileMetadata();
+            log.appendLine('[sidebar] editActiveFileMetadata returned');
             break;
+          case 'showMetadataEditor':
           case WebviewMessageType.ShowMetadataEditor:
             if (data.filePath) {
               await this.showMetadataEditor(data.filePath);
             }
             break;
+          case 'showSettings':
           case WebviewMessageType.ShowSettings:
             await this.showSettings();
             break;
+          case 'showMain':
           case WebviewMessageType.ShowMain:
+            log.appendLine('[sidebar] recv showMain - calling showMainView');
             this.showMainView();
+            log.appendLine('[sidebar] showMainView returned');
             break;
+          case 'back':
+            log.appendLine('[sidebar] recv back - calling showMainView');
+            this.showMainView();
+            log.appendLine('[sidebar] showMainView returned');
+            break;
+          case 'saveMetadata':
           case WebviewMessageType.SaveMetadata:
             if (data.filePath && data.metadata) {
               await this.saveMetadata(data.filePath, data.metadata);
             }
             break;
+          case 'saveSettings':
           case WebviewMessageType.SaveSettings:
             if (data.settings) {
               await this.saveSettings(data.settings);
             }
             break;
+          default:
+            console.log('[Toolbox] Unknown message type:', data.type);
         }
       } catch (error) {
         const errorMessage = error instanceof Error ? error.message : String(error);
@@ -169,22 +207,28 @@ export class ToolboxSidebarProvider implements vscode.WebviewViewProvider {
    * Edit metadata for the currently active file
    */
   public async editActiveFileMetadata() {
+    toolboxLog.appendLine('[sidebar] editActiveFileMetadata called');
     const activeEditor = vscode.window.activeTextEditor;
 
     if (!activeEditor) {
+      toolboxLog.appendLine('[sidebar] no active editor');
       vscode.window.showErrorMessage('No active file open. Please open an AHK file first.');
       return;
     }
 
     const filePath = activeEditor.document.uri.fsPath;
+    toolboxLog.appendLine('[sidebar] filePath: ' + filePath);
 
     // Check if it's an AHK file
     if (!filePath.endsWith('.ahk') && !filePath.endsWith('.ahk2')) {
+      toolboxLog.appendLine('[sidebar] not an AHK file');
       vscode.window.showWarningMessage('Please open an AutoHotkey (.ahk or .ahk2) file.');
       return;
     }
 
+    toolboxLog.appendLine('[sidebar] opening inline metadata editor');
     await this.showMetadataEditor(filePath);
+    toolboxLog.appendLine('[sidebar] inline metadata editor shown');
   }
 
   /**
@@ -229,7 +273,10 @@ export class ToolboxSidebarProvider implements vscode.WebviewViewProvider {
    * Show main toolbox view
    */
   public showMainView() {
+    toolboxLog.appendLine('[sidebar] showMainView invoked');
     if (!this._view) {
+      this.pendingRoute = 'main';
+      toolboxLog.appendLine('[sidebar] pendingRoute=main queued');
       return;
     }
 
@@ -398,7 +445,7 @@ export class ToolboxSidebarProvider implements vscode.WebviewViewProvider {
    */
   private generateJSDocHeader(metadata: JSDocMetadata): string {
     const lines: string[] = [];
-    lines.push('/************************************************************************');
+    lines.push('************************************************************************');
 
     const tagOrder = [
       'file', 'title', 'fileoverview', 'abstract', 'description', 'module',
@@ -1825,7 +1872,7 @@ export class ToolboxSidebarProvider implements vscode.WebviewViewProvider {
     <h2>Edit Metadata</h2>
   </div>
 
-    <div class="content">
+  <div class="content">
     <div class="section">
       <div class="field">
         <label for="title" class="field-label">Title</label>
@@ -1925,21 +1972,29 @@ export class ToolboxSidebarProvider implements vscode.WebviewViewProvider {
   </div>
 
   <script>
+    console.log('[sidebar-meta] script loaded');
     const vscode = acquireVsCodeApi();
     const originalMetadata = ${originalMetadataJson};
     const filePathValue = ${filePathJson};
 
-    // Navigation function - called by onclick handlers
-    function goBack() {
-      console.log('goBack called');
-      vscode.postMessage({ type: 'showMain' });
-    }
+    // Button click handlers - same pattern as Settings view
+    const backBtn = document.getElementById('back-btn');
+    const cancelBtn = document.getElementById('cancel-btn');
+    console.log('[sidebar-meta] back-btn found:', !!backBtn);
+    console.log('[sidebar-meta] cancel-btn found:', !!cancelBtn);
 
-    // Wire up button click handlers via addEventListener (more reliable than onclick)
-    document.addEventListener('DOMContentLoaded', () => {
-      document.getElementById('back-btn')?.addEventListener('click', goBack);
-      document.getElementById('cancel-btn')?.addEventListener('click', goBack);
-      document.getElementById('save-btn')?.addEventListener('click', handleSave);
+    backBtn?.addEventListener('click', () => {
+      console.log('[sidebar-meta] back-btn clicked, posting showMain');
+      vscode.postMessage({ type: 'showMain' });
+    });
+
+    cancelBtn?.addEventListener('click', () => {
+      console.log('[sidebar-meta] cancel-btn clicked, posting showMain');
+      vscode.postMessage({ type: 'showMain' });
+    });
+
+    document.getElementById('save-btn')?.addEventListener('click', () => {
+      handleSave();
     });
 
     const getElementValue = (id) => {
@@ -2015,5 +2070,3 @@ export class ToolboxSidebarProvider implements vscode.WebviewViewProvider {
 </html>`;
   }
 }
-
-
